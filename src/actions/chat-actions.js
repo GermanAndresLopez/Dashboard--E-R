@@ -1,17 +1,19 @@
 import { generateText } from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
 
-const SUPABASE_URL = "https://ydkzcqohevawyuroapbs.supabase.co/rest/v1/sensores"
-const SUPABASE_API_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlka3pjcW9oZXZhd3l1cm9hcGJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAyMjc3MTQsImV4cCI6MjA2NTgwMzcxNH0.h0MlCCfDlVxwHIIqTlGg5SqZj0fPXRnOdKmTHpQ_lMI"
+// 📌 Configuración de Supabase
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_API_KEY = import.meta.env.VITE_SUPABASE_API_KEY
 
+// 📌 Configuración de OpenRouter (corregida)
 const openrouter = createOpenAI({
-  apiKey: "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",
-  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: import.meta.env.VITE_OPENROUTER_API_KEY,
+  baseURL: "https://openrouter.ai/api/v1", // Endpoint correcto
 })
 
 let cachedContext = null
 
+// 📌 Obtener datos de Supabase y generar contexto
 async function obtenerDatosSensores() {
   if (cachedContext) return cachedContext
 
@@ -33,55 +35,40 @@ async function obtenerDatosSensores() {
     const totalRegistros = datos.length
     const muestra = datos.slice(0, 3)
 
-    // Estadísticas de temperatura
-    const temperaturas = datos.map((d) => Number.parseFloat(d.temperatura_c)).filter((v) => !isNaN(v))
-    const maxTemp = Math.max(...temperaturas)
-    const minTemp = Math.min(...temperaturas)
-    const avgTemp = (temperaturas.reduce((a, b) => a + b, 0) / temperaturas.length).toFixed(2)
+    const producciones = datos
+      .map((d) => Number.parseFloat(d.produccion_mwh))
+      .filter((v) => !isNaN(v))
 
-    // Estadísticas de voltaje
-    const voltajes = datos.map((d) => Number.parseFloat(d.voltaje_v)).filter((v) => !isNaN(v))
-    const avgVolt = (voltajes.reduce((a, b) => a + b, 0) / voltajes.length).toFixed(2)
+    const totalProduccion = producciones.reduce((a, b) => a + b, 0).toFixed(2)
+    const departamentos = [...new Set(datos.map((d) => d.departamento).filter(Boolean))]
+    const tecnologias = [...new Set(datos.map((d) => d.tecnologia).filter(Boolean))]
 
-    // Estadísticas de eficiencia
-    const eficiencias = datos.map((d) => Number.parseFloat(d.eficiencia_porcentaje)).filter((v) => !isNaN(v))
-    const avgEf = (eficiencias.reduce((a, b) => a + b, 0) / eficiencias.length).toFixed(2)
+    const datosNormalizados = datos.map(d => ({
+  departamento: d.departamento?.toLowerCase() || "",
+  tecnologia: d.tecnologia || "",
+  produccion_mwh: d.produccion_mwh || 0,
+  fecha: d.fecha || "",
+  año: d.año || "",
+  mes: d.mes || "",
+  día: d.día || ""
+}))
 
-    // Alarmas
-    const totalAlarmas = datos.filter((d) => d.alarma == 1).length
-    const tiposAlarma = [...new Set(datos.map((d) => d.tipo_alarma).filter(Boolean))]
+const contexto = `Eres un asistente especializado en análisis de datos de producción energética.
+Dispones de los datos completos de la tabla "hackathon" de Supabase.
 
-    const contexto = `Eres un asistente especializado en análisis de datos de sensores industriales.
-Responde únicamente basándote en los datos reales extraídos de una base Supabase.
+Reglas:
+- Responde exclusivamente usando los datos listados aquí.
+- Las comparaciones de "departamento" deben ser insensibles a mayúsculas/minúsculas.
+- Para fechas y periodos, usa siempre el campo "fecha" (ignora "created_at").
+- Si no existe información para algo, responde claramente que no se encuentra en la base.
+- No inventes ni estimes información fuera de lo que está en los registros.
+- Todas las cifras deben basarse en la suma o conteo real de los registros.
+- Si la pregunta se refiere a un periodo de tiempo, filtra por el campo "fecha".
+- No imagines ni supongas datos que no estén en los registros.
 
-📊 Estadísticas disponibles:
-- Total de registros: ${totalRegistros}
-- Columnas: ${columnas.join(", ")}
-
-📈 Temperatura (°C):
-- Máxima: ${maxTemp}
-- Mínima: ${minTemp}
-- Promedio: ${avgTemp}
-
-⚡ Voltaje (V):
-- Promedio: ${avgVolt}
-
-🛠️ Eficiencia (%):
-- Promedio: ${avgEf}
-
-🚨 Alarmas:
-- Registros con alarma activa: ${totalAlarmas}
-- Tipos de alarma detectados: ${tiposAlarma.join(", ") || "ninguno"}
-
-📌 Muestra de registros:
-${JSON.stringify(muestra, null, 2)}
-
-🔎 Instrucciones:
-- Responde solo con base en los datos reales mostrados.
-- Si no puedes calcular algo, dilo claramente.
-- Sé técnico, conciso y en español.
-- Si te preguntan por tendencias o comparaciones, responde usando los valores conocidos.
-- No inventes ni completes información faltante.`
+📊 Datos completos:
+${JSON.stringify(datosNormalizados, null, 2)}
+`
 
     cachedContext = contexto
     return contexto
@@ -91,28 +78,56 @@ ${JSON.stringify(muestra, null, 2)}
   }
 }
 
+// 📌 Registrar un nuevo dato en Supabase
+export async function registrarProduccion({ departamento, tecnologia, produccion_mwh, fecha, año, mes, día }) {
+  try {
+    const response = await fetch(SUPABASE_URL, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_API_KEY,
+        Authorization: `Bearer ${SUPABASE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ departamento, tecnologia, produccion_mwh, fecha, año, mes, día }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error al registrar: ${response.status}`)
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error al registrar producción:", error)
+    return { success: false, error: "No se pudo registrar la producción." }
+  }
+}
+
+// 📌 Limpia el pensamiento oculto del modelo
 function limpiarPensamiento(texto) {
   return texto.replace(/◁think▷.*?◁\/think▷/gs, "").trim()
 }
 
+// 📌 Envía mensaje a la IA con contexto de Supabase
 export async function enviarMensaje(mensaje, historial) {
   try {
     const contexto = await obtenerDatosSensores()
 
-    const mensajesCompletos = [{ role: "system", content: contexto }, ...historial, { role: "user", content: mensaje }]
+    const mensajesCompletos = [
+      { role: "system", content: contexto },
+      ...historial,
+      { role: "user", content: mensaje },
+    ]
 
     const { text } = await generateText({
-      model: openrouter("mistralai/devstral-small:free"),
+      model: openrouter.chat("mistralai/mistral-small-3.2-24b-instruct:free"), // ✅ Sintaxis corregida
       messages: mensajesCompletos,
       temperature: 0.2,
-      maxTokens: 300,
+      maxTokens: 500,
     })
-
-    const respuestaLimpia = limpiarPensamiento(text)
 
     return {
       success: true,
-      respuesta: respuestaLimpia,
+      respuesta: limpiarPensamiento(text),
     }
   } catch (error) {
     console.error("Error en el chat:", error)

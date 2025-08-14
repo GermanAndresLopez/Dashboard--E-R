@@ -10,7 +10,7 @@ export default function ChatbotSimple() {
     {
       id: "1",
       role: "assistant",
-      content: "¡Hola! Soy tu asistente para consultar datos de sensores. Pregúntame sobre la información disponible.",
+      content: "¡Hola! Soy tu asistente para consultar datos de produccion de energia renovable. Pregúntame sobre la información disponible.",
       timestamp: new Date(),
     },
   ])
@@ -109,7 +109,7 @@ export default function ChatbotSimple() {
                   <Bot className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium">Asistente de Sensores</h3>
+                  <h3 className="text-sm font-medium">Asistente de energia</h3>
                   <p className="text-xs text-blue-100">En línea</p>
                 </div>
               </div>

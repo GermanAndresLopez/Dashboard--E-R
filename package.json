@@ -16,7 +16,10 @@
     "@mui/material": "^7.1.1",
     "ai": "^4.3.16",
     "axios": "^1.10.0",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.517.0",
+    "papaparse": "^5.5.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-toastify": "^11.0.5"

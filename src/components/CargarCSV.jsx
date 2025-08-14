@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { cargarCSV } from "../services/registroApi"
-import { toast } from "react-toastify"
-import { Upload, FileText, CheckCircle } from "lucide-react"
+import { registrarProduccion } from "../actions/chat-actions"
+import Papa from "papaparse"
+import { Upload, CheckCircle, FileText } from "lucide-react"
 
 const CargarCSV = () => {
   const [file, setFile] = useState(null)
@@ -36,26 +36,39 @@ const CargarCSV = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!file) {
-      toast.error("Selecciona un archivo CSV")
+      alert("Selecciona un archivo CSV")
       return
     }
 
     setIsLoading(true)
-    const formData = new FormData()
-    formData.append("file", file)
-
-    try {
-      const data = await cargarCSV(formData)
-      toast.success(data.message)
-      if (data.alertas && data.alertas.length > 0) {
-        data.alertas.forEach((alerta) => toast.warn(alerta))
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const requiredCols = ["departamento", "tecnologia", "produccion_mwh", "fecha", "año", "mes", "día"]
+        const cols = results.meta.fields || []
+        const missing = requiredCols.filter(col => !cols.includes(col))
+        if (missing.length > 0) {
+          alert(`El archivo CSV no tiene las columnas requeridas: ${missing.join(", ")}`)
+          setIsLoading(false)
+          return
+        }
+        let successCount = 0
+        let errorCount = 0
+        for (const row of results.data) {
+          const res = await registrarProduccion(row)
+          if (res.success) successCount++
+          else errorCount++
+        }
+        alert(`Carga finalizada. Registros exitosos: ${successCount}. 1: ${errorCount}`)
+        setFile(null)
+        setIsLoading(false)
+      },
+      error: () => {
+        alert("Error al procesar el archivo CSV")
+        setIsLoading(false)
       }
-      setFile(null)
-    } catch (error) {
-      toast.error("Error al cargar CSV")
-    } finally {
-      setIsLoading(false)
-    }
+    })
   }
 
   return (
@@ -119,8 +132,7 @@ const CargarCSV = () => {
                 <div>
                   <h3 className="text-sm font-medium text-blue-800">Formato requerido</h3>
                   <p className="text-sm text-blue-700 mt-1">
-                    El archivo CSV debe contener las columnas: Fecha, Temperatura_C, Voltaje_V, Eficiencia_Porcentaje,
-                    Alarma, Tipo_Alarma, Alarma_Calculada
+                    El archivo CSV debe contener las columnas: <b>departamento, tecnologia, produccion_mwh, fecha, año, mes, día</b>
                   </p>
                 </div>
               </div>

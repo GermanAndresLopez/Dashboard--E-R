@@ -18,7 +18,7 @@ const Navbar = ({ activeTab, setActiveTab }) => {
               <BarChart3 className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Sistema de Sensores</h1>
+              <h1 className="text-xl font-bold text-gray-900">Produccion de Energia Renovable - MagicDev 🧙🏻‍♂️</h1>
               <p className="text-xs text-gray-500">Panel de Control</p>
             </div>
           </div>
